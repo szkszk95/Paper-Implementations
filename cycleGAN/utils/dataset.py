@@ -3,7 +3,7 @@ import numpy as np
 import torch.utils.data as data
 from os import listdir
 from os.path import join
-from utils import is_image_file
+from utils.utils import is_image_file
 import os
 from PIL import Image
 import random

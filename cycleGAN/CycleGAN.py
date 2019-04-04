@@ -27,7 +27,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-4, help='weight dec
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--outf', default='checkpoints/', help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
-parser.add_argument('--dataPath', default='facades/train/', help='path to training images')
+parser.add_argument('--dataPath', default='', help='path to training images')
 parser.add_argument('--loadSize', type=int, default=143, help='scale image to this size')
 parser.add_argument('--fineSize', type=int, default=128, help='random crop image to this size')
 parser.add_argument('--flip', type=int, default=1, help='1 for flipping image randomly, 0 for not')
@@ -38,7 +38,8 @@ parser.add_argument('--G_BA', default='', help='path to pre-trained G_BA')
 parser.add_argument('--save_step', type=int, default=20000, help='save interval')
 parser.add_argument('--log_step', type=int, default=100, help='log interval')
 parser.add_argument('--loss_type', default='mse', help='GAN loss type, bce|mse default is negative likelihood loss')
-parser.add_argument('--poolSize', type=int, default=50, help='size of buffer in lsGAN, poolSize=0 indicates not using history')
+parser.add_argument('--poolSize', type=int, default=50,
+                    help='size of buffer in lsGAN, poolSize=0 indicates not using history')
 parser.add_argument('--lambda_ABA', type=float, default=10.0, help='weight of cycle loss ABA')
 parser.add_argument('--lambda_BAB', type=float, default=10.0, help='weight of cycle loss BAB')
 
@@ -60,8 +61,8 @@ if opt.cuda:
 
 cudnn.benchmark = True
 ##########   DATASET   ###########
-datasetA = DATASET(os.path.join(opt.dataPath,'A'),opt.loadSize,opt.fineSize,opt.flip)
-datasetB = DATASET(os.path.join(opt.dataPath,'B'),opt.loadSize,opt.fineSize,opt.flip)
+datasetA = DATASET(os.path.join(opt.dataPath, '/home/szk/PycharmProjects/open-reid/examples/data/cuhk03/images'), opt.loadSize, opt.fineSize, opt.flip)
+datasetB = DATASET(os.path.join(opt.dataPath, '/home/szk/PycharmProjects/open-reid/examples/data/viper/images'), opt.loadSize, opt.fineSize, opt.flip)
 loader_A = torch.utils.data.DataLoader(dataset=datasetA,
                                        batch_size=opt.batchSize,
                                        shuffle=True,
@@ -74,7 +75,9 @@ loader_B = torch.utils.data.DataLoader(dataset=datasetB,
 loaderB = iter(loader_B)
 ABPool = ImagePool(opt.poolSize)
 BAPool = ImagePool(opt.poolSize)
-###########   MODEL   ###########
+
+
+# ---------   MODEL   ---------
 # custom weights initialization called on netG and netD
 def weights_init(m):
     classname = m.__class__.__name__
@@ -84,16 +87,17 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+
 ndf = opt.ndf
 ngf = opt.ngf
 nc = 3
 
-D_A = Discriminator(opt.input_nc,ndf)
-D_B = Discriminator(opt.output_nc,ndf)
+D_A = Discriminator(opt.input_nc, ndf)
+D_B = Discriminator(opt.output_nc, ndf)
 G_AB = Generator(opt.input_nc, opt.output_nc, opt.ngf)
 G_BA = Generator(opt.output_nc, opt.input_nc, opt.ngf)
 
-if(opt.G_AB != ''):
+if (opt.G_AB != ''):
     print('Warning! Loading pre-trained weights.')
     G_AB.load_state_dict(torch.load(opt.G_AB))
     G_BA.load_state_dict(torch.load(opt.G_BA))
@@ -101,28 +105,27 @@ else:
     G_AB.apply(weights_init)
     G_BA.apply(weights_init)
 
-if(opt.cuda):
+if (opt.cuda):
     D_A.cuda()
     D_B.cuda()
     G_AB.cuda()
     G_BA.cuda()
 
-
 D_A.apply(weights_init)
 D_B.apply(weights_init)
 
-###########   LOSS & OPTIMIZER   ##########
+# --------- LOSS & OPTIMIZER ---------
 criterionMSE = nn.L1Loss()
-if(opt.loss_type == 'bce'):
+if (opt.loss_type == 'bce'):
     criterion = nn.BCELoss()
 else:
     criterion = nn.MSELoss()
 # chain is used to update two generators simultaneously
-optimizerD_A = torch.optim.Adam(D_A.parameters(),lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=opt.weight_decay)
-optimizerD_B = torch.optim.Adam(D_B.parameters(),lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=opt.weight_decay)
-optimizerG = torch.optim.Adam(chain(G_AB.parameters(),G_BA.parameters()),lr=opt.lr, betas=(opt.beta1, 0.999))
+optimizerD_A = torch.optim.Adam(D_A.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=opt.weight_decay)
+optimizerD_B = torch.optim.Adam(D_B.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=opt.weight_decay)
+optimizerG = torch.optim.Adam(chain(G_AB.parameters(), G_BA.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
 
-###########   GLOBAL VARIABLES   ###########
+# --------- GLOBAL VARIABLES ---------
 input_nc = opt.input_nc
 output_nc = opt.output_nc
 fineSize = opt.fineSize
@@ -139,7 +142,7 @@ label = Variable(label)
 AB = Variable(AB)
 BA = Variable(BA)
 
-if(opt.cuda):
+if (opt.cuda):
     real_A = real_A.cuda()
     real_B = real_B.cuda()
     label = label.cuda()
@@ -150,6 +153,7 @@ if(opt.cuda):
 
 real_label = 1
 fake_label = 0
+
 
 ###########   Testing    ###########
 def test(niter):
@@ -162,11 +166,11 @@ def test(niter):
     BA = G_BA(real_B)
 
     vutils.save_image(AB.data,
-            'AB_niter_%03d_1.png' % (niter),
-            normalize=True)
+                      'samples/reid/AB_niter_%03d_1.png' % (niter),
+                      normalize=True)
     vutils.save_image(BA.data,
-            'BA_niter_%03d_1.png' % (niter),
-            normalize=True)
+                      'samples/reid/BA_niter_%03d_1.png' % (niter),
+                      normalize=True)
 
     imgA = loaderA.next()
     imgB = loaderB.next()
@@ -176,20 +180,23 @@ def test(niter):
     BA = G_BA(real_B)
 
     vutils.save_image(AB.data,
-            'AB_niter_%03d_2.png' % (niter),
-            normalize=True)
+                      'AB_niter_%03d_2.png' % (niter),
+                      normalize=True)
     vutils.save_image(BA.data,
-            'BA_niter_%03d_2.png' % (niter),
-            normalize=True)
+                      'BA_niter_%03d_2.png' % (niter),
+                      normalize=True)
 
 
-###########   Training   ###########
+import time
+
+
+# ---------   Training ---------
 D_A.train()
 D_B.train()
 G_AB.train()
 G_BA.train()
-for iteration in range(1,opt.niter+1):
-    ###########   data  ###########
+for iteration in range(1, opt.niter + 1):
+    # --------- data ---------
     try:
         imgA = loaderA.next()
         imgB = loaderB.next()
@@ -198,10 +205,15 @@ for iteration in range(1,opt.niter+1):
         imgA = loaderA.next()
         imgB = loaderB.next()
 
-    real_A.data.resize_(imgA.size()).copy_(imgA)
-    real_B.data.resize_(imgB.size()).copy_(imgB)
+    # real_A.data.resize_(imgA.size()).copy_(imgA)
+    # real_B.data.resize_(imgB.size()).copy_(imgB)
 
-    ###########   fDx   ###########
+    t = time.time()
+
+    real_A = imgA
+    real_B = imgB
+
+    # --------- fDx ---------
     D_A.zero_grad()
     D_B.zero_grad()
 
@@ -213,7 +225,10 @@ for iteration in range(1,opt.niter+1):
     l_A = criterion(outA, label)
     l_B = criterion(outB, label)
     errD_real = l_A + l_B
-    errD_real.backward()
+
+    print(time.time()-t)
+    t = time.time()
+    # errD_real.backward()
 
     # train with fake
     label.data.fill_(fake_label)
@@ -222,21 +237,27 @@ for iteration in range(1,opt.niter+1):
     AB.data.resize_(AB_tmp.data.size()).copy_(ABPool.Query(AB_tmp.cpu().data))
     BA_tmp = G_BA(real_B)
     BA.data.resize_(BA_tmp.data.size()).copy_(BAPool.Query(BA_tmp.cpu().data))
-    
+
+    print(time.time() - t)
+    t = time.time()
+
     out_BA = D_A(BA.detach())
     out_AB = D_B(AB.detach())
 
-    l_BA = criterion(out_BA,label)
-    l_AB = criterion(out_AB,label)
+    l_BA = criterion(out_BA, label)
+    l_AB = criterion(out_AB, label)
 
     errD_fake = l_BA + l_AB
-    errD_fake.backward()
+    # errD_fake.backward()
 
-    errD = (errD_real + errD_fake)*0.5
+    errD = (errD_real + errD_fake) * 0.5
+    errD.backward()
     optimizerD_A.step()
     optimizerD_B.step()
+    print(time.time() - t)
+    t = time.time()
 
-    ########### fGx ###########
+    # --------- fGx ---------
     G_AB.zero_grad()
     G_BA.zero_grad()
     label.data.fill_(real_label)
@@ -250,27 +271,30 @@ for iteration in range(1,opt.niter+1):
     out_BA = D_A(BA)
     out_AB = D_B(AB)
 
-    l_BA = criterion(out_BA,label)
-    l_AB = criterion(out_AB,label)
+    l_BA = criterion(out_BA, label)
+    l_AB = criterion(out_AB, label)
 
     # reconstruction loss
     l_rec_ABA = criterionMSE(ABA, real_A) * opt.lambda_ABA
     l_rec_BAB = criterionMSE(BAB, real_B) * opt.lambda_BAB
 
     errGAN = l_BA + l_AB
-    errMSE =  l_rec_ABA + l_rec_BAB
+    errMSE = l_rec_ABA + l_rec_BAB
     errG = errGAN + errMSE
     errG.backward()
 
     optimizerG.step()
 
-    ###########   Logging   ############
-    if(iteration % opt.log_step):
+    print(time.time() - t)
+    t = time.time()
+
+    # ---------  Logging  ---------
+    if iteration % opt.log_step:
         print('[%d/%d] Loss_D: %.4f Loss_G: %.4f Loss_MSE: %.4f'
-                  % (iteration, opt.niter,
-                     errD.data[0], errGAN.data[0], errMSE.data[0]))
-    ########## Visualize #########
-    if(iteration % 1000 == 0):
+              % (iteration, opt.niter,
+                 errD.data[0], errGAN.data[0], errMSE.data[0]))
+    # --------- Visualize ---------
+    if iteration % 1000 == 0:
         test(iteration)
 
     if iteration % opt.save_step == 0:
